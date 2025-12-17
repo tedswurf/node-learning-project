@@ -1,5 +1,8 @@
 {
     "name": "day1-basics",
     "version": "1.0.0",
-    "type": "module"
+    "type": "module",
+    "dependencies": {
+        "csv-parse": "^6.1.0"
+    }
 }
