@@ -3,13 +3,17 @@ import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { LoadFile, ViewRows } from './operations/csv-loader.js';
+import { LogAggregator } from './operations/log-aggregator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = 3000;
 
-const server = http.createServer((req, res) => {
+const logFilePath = path.join(__dirname, 'logs', 'app.log');
+const logAggregator = new LogAggregator(logFilePath).SetupDefaultHandlers();
+
+const server = http.createServer(async (req, res) => {
     console.log(`${req.method} ${req.url}`);
 
     res.setHeader('Content-Type', 'text/html');
@@ -43,18 +47,59 @@ const server = http.createServer((req, res) => {
     else if (req.url === '/api/records/view') {
         const filePath = path.join(__dirname, 'DATA', 'RecordAccounting.csv');
 
-        LoadFile(filePath)
-            .then(async (rows) => {
-                res.statusCode = 200;
-                res.setHeader('Content-Type', 'text/html');
-                const view = await ViewRows(rows);
-                const html = ConvertRowsToHTMLTable(view);
-                res.end(html);
-            })
-            .catch((error) => {
-                res.statusCode = 500;
-                res.end(JSON.stringify({ error: "Failed to load records." }));
-            });
+        try {
+            const fileContent = await LoadFile(filePath);
+
+            const view = await ViewRows(fileContent);
+            const html = ConvertRowsToHTMLTable(view);
+
+            res.setHeader('Content-Type', 'text/html');
+            res.end(html);
+
+            logAggregator.addLog('info', 'CSV data viewed successfully via /api/records/view');
+        } catch (error) {
+            res.statusCode = 500;
+            res.end("<h1>500 Internal Server Error</h1><p>Failed to load CSV data.</p>");
+            return;
+        }
+    }
+    else if (req.url === '/api/logs/save') {
+        try {
+            await logAggregator.saveLogs();
+
+            res.statusCode = 200;
+            res.end("<h1>Logs saved successfully.</h1>");
+        } catch (error) {
+            res.statusCode = 500;
+            res.end("<h1>500 Internal Server Error</h1><p>Failed to save logs.</p>");
+            return;
+        }
+    }
+    else if (req.url === '/api/logs') {
+        try {
+            const logs = await logAggregator.getLogs();
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'text/plain');
+            res.end(logs.join('\n'));
+        } catch (error) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'text/html');
+            res.end("<h1>500 Internal Server Error</h1><p>Failed to get logs.</p>");
+            return;
+        }
+    }
+    else if (req.url === '/api/logs/stats') {
+        try {
+            const stats = logAggregator.getStats();
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(stats));
+        } catch (error) {
+            res.statusCode = 500;
+            res.end("<h1>500 Internal Server Error</h1><p>Failed to get stats.</p>");
+            return;
+        }
     }
     else {
         res.statusCode = 404;

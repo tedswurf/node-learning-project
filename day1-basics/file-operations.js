@@ -86,4 +86,4 @@ function VerifyFilePath(dirPath, localPath) {
 
 // Can be used by including modules
 // e.g., import { ReadFileAsync } from './file-operations.js';
-export { ReadFileAsync };
+export { ReadFileAsync, VerifyFilePath };
