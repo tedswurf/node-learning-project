@@ -1,134 +1,60 @@
 import fs from 'fs';
-import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { LoadFile, ViewRows } from './operations/csv-loader.js';
+import express from 'express';
 import { LogAggregator } from './operations/log-aggregator.js';
+import { createLogRouter } from './routes/logs.js';
+import { createRecordRouter } from './routes/records.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = 3000;
 
+// Initialize Express app
+const app = express();
+
+// Initialize LogAggregator
 const logFilePath = path.join(__dirname, 'logs', 'app.log');
 const logAggregator = new LogAggregator(logFilePath).SetupDefaultHandlers();
 
-const server = http.createServer(async (req, res) => {
-    console.log(`${req.method} ${req.url}`);
+// Setup routers with dependencies
+const logRouter = createLogRouter(logAggregator);
+const recordRouter = createRecordRouter(logAggregator);
 
-    res.setHeader('Content-Type', 'text/html');
+// Mount API routers
+app.use('/api/logs', logRouter);
+app.use('/api/records', recordRouter);
 
-    // Route handling
-    if (req.url === '/') {
-        res.statusCode = 200;
-        res.end("<h1>Welcome to the simple-server</h1><p>This is the home page.</p>");
-    }
-    else if (req.url === '/favicon.ico') {
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'image/x-icon');
-        const faviconPath = path.join(__dirname, 'public', 'favicon.ico');
-        fs.createReadStream(faviconPath).pipe(res);
-    }
-    else if (req.url === '/api/data') { 
-        const dataPath = path.join(__dirname, 'DATA', 'sample.txt');
-
-        fs.readFile(dataPath, 'utf8', (err, data) => {
-            if (err) {
-                res.statusCode = 500;
-                res.end(JSON.stringify({ error: "Failed to read data file." }));
-                return;
-            }
-
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ content: data }));
-        });
-    }
-    else if (req.url === '/api/records/view') {
-        const filePath = path.join(__dirname, 'DATA', 'RecordAccounting.csv');
-
-        try {
-            const fileContent = await LoadFile(filePath);
-
-            const view = await ViewRows(fileContent);
-            const html = ConvertRowsToHTMLTable(view);
-
-            res.setHeader('Content-Type', 'text/html');
-            res.end(html);
-
-            logAggregator.addLog('info', 'CSV data viewed successfully via /api/records/view');
-        } catch (error) {
-            res.statusCode = 500;
-            res.end("<h1>500 Internal Server Error</h1><p>Failed to load CSV data.</p>");
-            return;
-        }
-    }
-    else if (req.url === '/api/logs/save') {
-        try {
-            await logAggregator.saveLogs();
-
-            res.statusCode = 200;
-            res.end("<h1>Logs saved successfully.</h1>");
-        } catch (error) {
-            res.statusCode = 500;
-            res.end("<h1>500 Internal Server Error</h1><p>Failed to save logs.</p>");
-            return;
-        }
-    }
-    else if (req.url === '/api/logs') {
-        try {
-            const logs = await logAggregator.getLogs();
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'text/plain');
-            res.end(logs.join('\n'));
-        } catch (error) {
-            res.statusCode = 500;
-            res.setHeader('Content-Type', 'text/html');
-            res.end("<h1>500 Internal Server Error</h1><p>Failed to get logs.</p>");
-            return;
-        }
-    }
-    else if (req.url === '/api/logs/stats') {
-        try {
-            const stats = logAggregator.getStats();
-
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify(stats));
-        } catch (error) {
-            res.statusCode = 500;
-            res.end("<h1>500 Internal Server Error</h1><p>Failed to get stats.</p>");
-            return;
-        }
-    }
-    else {
-        res.statusCode = 404;
-        res.end("<h1>404 Not Found</h1><p>The requested resource was not found on this server.</p>");
-    }
+// Home route
+app.get('/', (req, res) => {
+    res.send('<h1>Welcome to the simple-server</h1><p>This is the home page.</p>');
 });
 
+// Favicon route
+app.get('/favicon.ico', (req, res) => {
+    const faviconPath = path.join(__dirname, 'public', 'favicon.ico');
+    res.sendFile(faviconPath);
+});
 
-server.listen(PORT, () => {
-    console.log(`Server is running at http://localhost:${PORT}`);
-})
+// GET /api/data - Read sample.txt file
+app.get('/api/data', (req, res) => {
+    const dataPath = path.join(__dirname, 'DATA', 'sample.txt');
 
-
-
-function ConvertRowsToHTMLTable(rows) {
-    let html = '<table border="1" cellpadding="5" cellspacing="0">';
-
-    rows.forEach((columns, rowIndex) => {
-        html += '<tr>';
-        columns.forEach((col) => {
-            if (rowIndex === 0) {
-                html += `<th>${col}</th>`;
-            } else {
-                html += `<td>${col}</td>`;
-            }
-        });
-        html += '</tr>';
+    fs.readFile(dataPath, 'utf8', (err, data) => {
+        if (err) {
+            return res.status(500).json({ error: 'Failed to read data file.' });
+        }
+        res.json({ content: data });
     });
+});
 
-    html += '</table>';
-    return html;
-}
+// 404 handler - must be last
+app.use((req, res) => {
+    res.status(404).send('<h1>404 Not Found</h1><p>The requested resource was not found on this server.</p>');
+});
+
+// Start server
+app.listen(PORT, () => {
+    console.log(`Server is running at http://localhost:${PORT}`);
+});
