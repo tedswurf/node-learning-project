@@ -1,0 +1,13 @@
+<%- include('partials/header', { title: 'Account Data' }) %>
+
+<h1>Account Data</h1>
+
+<% if (!accounts || accounts.length === 0) { %>
+    <p class="no-data">No account data is available.</p>
+<% } else { %>
+    <% accounts.forEach(account => { %>
+        <%- include('partials/account-table', { account }) %>
+    <% }); %>
+<% } %>
+
+<%- include('partials/footer') %>

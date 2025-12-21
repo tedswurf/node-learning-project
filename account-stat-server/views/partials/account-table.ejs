@@ -1,0 +1,45 @@
+<h2><%= account.name %> (<%= account.year %>)</h2>
+
+<% if (!account.records || account.records.length === 0) { %>
+    <p class="no-data">No records available for this account.</p>
+<% } else { %>
+    <table>
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Type</th>
+                <%
+                    const months = account.records[0]?.monthly.map(cell => cell.month) || [];
+                    months.forEach(month => {
+                %>
+                    <th><%= month %></th>
+                <% }); %>
+                <th>Total</th>
+                <th>Mean</th>
+                <th>Median</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% account.records.forEach(record => { %>
+                <tr data-type="<%= record.type %>">
+                    <td><%= record.category %></td>
+                    <td><%= record.type %></td>
+                    <% record.monthly.forEach(cell => { %>
+                        <td class="<%= cell.amount >= 0 ? 'amount-positive' : 'amount-negative' %>">
+                            $<%= cell.amount.toFixed(2) %>
+                        </td>
+                    <% }); %>
+                    <td class="<%= record.total >= 0 ? 'amount-positive' : 'amount-negative' %>">
+                        $<%= record.total.toFixed(2) %>
+                    </td>
+                    <td class="<%= record.mean >= 0 ? 'amount-positive' : 'amount-negative' %>">
+                        $<%= record.mean.toFixed(2) %>
+                    </td>
+                    <td class="<%= record.median >= 0 ? 'amount-positive' : 'amount-negative' %>">
+                        $<%= record.median.toFixed(2) %>
+                    </td>
+                </tr>
+            <% }); %>
+        </tbody>
+    </table>
+<% } %>

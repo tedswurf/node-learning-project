@@ -14,6 +14,7 @@ const serverContext = {
     dataDir: path.join(baseDir, '../DATA'),
     logDir: path.join(baseDir, '../LOGS'),
     logPath: path.join(baseDir, '../LOGS', 'app.log'),
+    viewsDir: path.join(baseDir, '../views'),
 }
 
 await VerifyDirectories();
@@ -27,6 +28,10 @@ try {
 
     const app = express();
     const port = 3000;
+
+    // Configure view engine
+    app.set('view engine', 'ejs');
+    app.set('views', serverContext.viewsDir);
 
     // Middleware to log all requests
     app.use((req, res, next) => {
@@ -85,4 +90,10 @@ function VerifyDirectories() {
         fs.mkdirSync(serverContext.logDir);
     }
     console.log(`logs directory found at: ${serverContext.logDir}`);
+
+    if (!fs.existsSync(serverContext.viewsDir)) {
+        console.log(`views directory does not exist. Creating views directory at: ${serverContext.viewsDir}`);
+        fs.mkdirSync(serverContext.viewsDir, { recursive: true });
+    }
+    console.log(`views directory found at: ${serverContext.viewsDir}`);
 }
