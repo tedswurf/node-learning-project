@@ -1,0 +1,9 @@
+{
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+    "debug.javascript.autoAttachFilter": "onlyWithFlag",
+    "files.exclude": {
+        "**/.git": true,
+        "**/node_modules": true
+    }
+}
