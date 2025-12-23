@@ -1585,3 +1585,1986 @@ Prepare for Week 2 by:
 2. Create a file backup system with progress tracking
 3. Build a simple task queue with event emitters
 4. Convert more JavaScript code to TypeScript
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Week 2: GraphQL Fundamentals & API Development - Detailed Instructions
+
+## Prerequisites
+- Completed Week 1 (Node.js fundamentals)
+- Node.js and npm installed
+- Basic understanding of APIs
+- VS Code with TypeScript support
+
+## Setup
+
+### Install Required Tools
+```bash
+# Create Week 2 project directory
+mkdir week2-graphql
+cd week2-graphql
+
+# Initialize npm project
+npm init -y
+
+# Install dependencies
+npm install @apollo/server graphql
+npm install typescript @types/node --save-dev
+
+# Initialize TypeScript
+npx tsc --init
+```
+
+Update `tsconfig.json`:
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true
+  }
+}
+```
+
+Update `package.json`:
+```json
+{
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  }
+}
+```
+
+---
+
+## Day 1-2: GraphQL Basics
+
+### Session 1: Understanding GraphQL (2 hours)
+
+**Theory: REST vs GraphQL**
+
+REST API:
+```
+GET /users/1
+GET /users/1/posts
+GET /users/1/posts/5/comments
+```
+
+GraphQL (single request):
+```graphql
+query {
+  user(id: 1) {
+    name
+    email
+    posts {
+      title
+      comments {
+        text
+        author
+      }
+    }
+  }
+}
+```
+
+**Key Concepts:**
+1. **Schema**: Defines data structure and capabilities
+2. **Queries**: Read data (like GET in REST)
+3. **Mutations**: Modify data (like POST/PUT/DELETE in REST)
+4. **Resolvers**: Functions that fetch the data
+5. **Types**: Define shape of data
+
+### Session 2: Schema Definition Language (SDL) (2 hours)
+
+**Exercise 1.1: Basic Schema Design**
+
+Create `src/schema-basics.ts`:
+```typescript
+// schema-basics.ts
+export const typeDefs = `#graphql
+  # Scalar types: String, Int, Float, Boolean, ID
+
+  # Object type
+  type Book {
+    id: ID!           # ! means required/non-null
+    title: String!
+    author: String!
+    pages: Int
+    published: Boolean!
+  }
+
+  # Query type (entry point for reads)
+  type Query {
+    # Get all books
+    books: [Book!]!   # Array of non-null Books, array itself is non-null
+
+    # Get single book by ID
+    book(id: ID!): Book
+
+    # Search books by title
+    searchBooks(title: String!): [Book!]!
+  }
+
+  # Mutation type (entry point for writes)
+  type Mutation {
+    # Add a new book
+    addBook(title: String!, author: String!, pages: Int): Book!
+
+    # Delete a book
+    deleteBook(id: ID!): Boolean!
+
+    # Update a book
+    updateBook(id: ID!, title: String, author: String, pages: Int): Book
+  }
+`;
+```
+
+**Exercise 1.2: More Complex Schema**
+
+Create `src/schema-library.ts`:
+```typescript
+// schema-library.ts
+export const libraryTypeDefs = `#graphql
+  # Enum type
+  enum Genre {
+    FICTION
+    NON_FICTION
+    SCIENCE_FICTION
+    MYSTERY
+    BIOGRAPHY
+  }
+
+  # Custom scalar (for demonstration)
+  scalar Date
+
+  # Author type
+  type Author {
+    id: ID!
+    name: String!
+    bio: String
+    books: [Book!]!     # Author can have many books
+  }
+
+  # Book type with relationships
+  type Book {
+    id: ID!
+    title: String!
+    author: Author!     # Book has one author
+    genre: Genre
+    pages: Int
+    publishedDate: Date
+    isbn: String
+  }
+
+  # Input type for creating/updating
+  input BookInput {
+    title: String!
+    authorId: ID!
+    genre: Genre
+    pages: Int
+    publishedDate: String
+    isbn: String
+  }
+
+  input AuthorInput {
+    name: String!
+    bio: String
+  }
+
+  # Queries
+  type Query {
+    # Books
+    books(genre: Genre, authorId: ID): [Book!]!
+    book(id: ID!): Book
+    searchBooks(query: String!): [Book!]!
+
+    # Authors
+    authors: [Author!]!
+    author(id: ID!): Author
+  }
+
+  # Mutations
+  type Mutation {
+    # Books
+    addBook(input: BookInput!): Book!
+    updateBook(id: ID!, input: BookInput!): Book
+    deleteBook(id: ID!): Boolean!
+
+    # Authors
+    addAuthor(input: AuthorInput!): Author!
+    updateAuthor(id: ID!, input: AuthorInput!): Author
+    deleteAuthor(id: ID!): Boolean!
+  }
+`;
+```
+
+### Session 3: Writing GraphQL Queries (2 hours)
+
+**Exercise 1.3: Query Examples**
+
+Create `queries-examples.graphql`:
+```graphql
+# queries-examples.graphql
+
+# Simple query
+query GetAllBooks {
+  books {
+    id
+    title
+    author
+  }
+}
+
+# Query with arguments
+query GetBook {
+  book(id: "1") {
+    id
+    title
+    author
+    pages
+  }
+}
+
+# Query with variables (more flexible)
+query GetBookById($bookId: ID!) {
+  book(id: $bookId) {
+    id
+    title
+    author
+    pages
+  }
+}
+
+# Variables for above query:
+# {
+#   "bookId": "1"
+# }
+
+# Nested query
+query GetAuthorWithBooks {
+  author(id: "1") {
+    name
+    bio
+    books {
+      title
+      pages
+      genre
+    }
+  }
+}
+
+# Multiple queries in one request
+query GetBooksAndAuthors {
+  books {
+    id
+    title
+  }
+  authors {
+    id
+    name
+  }
+}
+
+# Query with alias (rename fields)
+query GetMultipleBooks {
+  firstBook: book(id: "1") {
+    title
+    author
+  }
+  secondBook: book(id: "2") {
+    title
+    author
+  }
+}
+
+# Fragments (reusable field selections)
+query GetBooksWithFragment {
+  book(id: "1") {
+    ...BookDetails
+  }
+}
+
+fragment BookDetails on Book {
+  id
+  title
+  author
+  pages
+  genre
+}
+
+# Filtering with arguments
+query GetScienceFictionBooks {
+  books(genre: SCIENCE_FICTION) {
+    title
+    author {
+      name
+    }
+  }
+}
+```
+
+**Exercise 1.4: Mutation Examples**
+
+Create `mutations-examples.graphql`:
+```graphql
+# mutations-examples.graphql
+
+# Simple mutation
+mutation AddBook {
+  addBook(
+    title: "The Great Gatsby"
+    author: "F. Scott Fitzgerald"
+    pages: 180
+  ) {
+    id
+    title
+    author
+  }
+}
+
+# Mutation with input type
+mutation AddBookWithInput {
+  addBook(input: {
+    title: "1984"
+    authorId: "1"
+    genre: SCIENCE_FICTION
+    pages: 328
+    isbn: "978-0451524935"
+  }) {
+    id
+    title
+    author {
+      name
+    }
+    genre
+  }
+}
+
+# Mutation with variables
+mutation AddBookWithVariables($input: BookInput!) {
+  addBook(input: $input) {
+    id
+    title
+    author {
+      name
+    }
+  }
+}
+
+# Variables:
+# {
+#   "input": {
+#     "title": "Dune",
+#     "authorId": "2",
+#     "genre": "SCIENCE_FICTION",
+#     "pages": 688
+#   }
+# }
+
+# Update mutation
+mutation UpdateBook($id: ID!, $input: BookInput!) {
+  updateBook(id: $id, input: $input) {
+    id
+    title
+    author {
+      name
+    }
+  }
+}
+
+# Delete mutation
+mutation DeleteBook($id: ID!) {
+  deleteBook(id: $id)
+}
+
+# Multiple mutations (executed sequentially)
+mutation AddAuthorAndBook {
+  newAuthor: addAuthor(input: {
+    name: "Isaac Asimov"
+    bio: "Science fiction writer"
+  }) {
+    id
+    name
+  }
+
+  newBook: addBook(input: {
+    title: "Foundation"
+    authorId: "3"
+    genre: SCIENCE_FICTION
+  }) {
+    id
+    title
+  }
+}
+```
+
+### Session 4: Exploring Public GraphQL APIs (2 hours)
+
+**Exercise 1.5: GitHub GraphQL API**
+
+Install GraphQL client:
+```bash
+npm install graphql-request
+```
+
+Create `src/github-api-test.ts`:
+```typescript
+// github-api-test.ts
+import { GraphQLClient, gql } from 'graphql-request';
+
+const endpoint = 'https://api.github.com/graphql';
+
+// You'll need a GitHub personal access token
+const token = process.env.GITHUB_TOKEN || 'YOUR_TOKEN_HERE';
+
+const client = new GraphQLClient(endpoint, {
+  headers: {
+    authorization: `Bearer ${token}`,
+  },
+});
+
+// Query to get repository information
+const query = gql`
+  query GetRepository($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) {
+      name
+      description
+      stargazerCount
+      forkCount
+      issues(first: 5, states: OPEN) {
+        nodes {
+          title
+          createdAt
+          author {
+            login
+          }
+        }
+      }
+    }
+  }
+`;
+
+const variables = {
+  owner: 'facebook',
+  name: 'react'
+};
+
+async function fetchGitHubData() {
+  try {
+    const data = await client.request(query, variables);
+    console.log('Repository:', data.repository.name);
+    console.log('Stars:', data.repository.stargazerCount);
+    console.log('\nRecent issues:');
+    data.repository.issues.nodes.forEach((issue: any) => {
+      console.log(`- ${issue.title} by ${issue.author.login}`);
+    });
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+fetchGitHubData();
+```
+
+---
+
+## Day 3-4: Building GraphQL APIs with Node.js
+
+### Session 1: Setting Up Apollo Server (2 hours)
+
+**Exercise 2.1: Basic Apollo Server**
+
+Create `src/basic-server.ts`:
+```typescript
+// basic-server.ts
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+
+// Define schema
+const typeDefs = `#graphql
+  type Book {
+    id: ID!
+    title: String!
+    author: String!
+  }
+
+  type Query {
+    books: [Book!]!
+    book(id: ID!): Book
+  }
+
+  type Mutation {
+    addBook(title: String!, author: String!): Book!
+  }
+`;
+
+// In-memory data store
+const books = [
+  { id: '1', title: 'The Great Gatsby', author: 'F. Scott Fitzgerald' },
+  { id: '2', title: '1984', author: 'George Orwell' },
+  { id: '3', title: 'To Kill a Mockingbird', author: 'Harper Lee' },
+];
+
+let nextId = 4;
+
+// Resolvers - functions that return data
+const resolvers = {
+  Query: {
+    books: () => books,
+    book: (_: any, { id }: { id: string }) => {
+      return books.find(book => book.id === id);
+    },
+  },
+  Mutation: {
+    addBook: (_: any, { title, author }: { title: string; author: string }) => {
+      const newBook = {
+        id: String(nextId++),
+        title,
+        author,
+      };
+      books.push(newBook);
+      return newBook;
+    },
+  },
+};
+
+// Create Apollo Server
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+});
+
+// Start server
+const { url } = await startStandaloneServer(server, {
+  listen: { port: 4000 },
+});
+
+console.log(`🚀 Server ready at: ${url}`);
+console.log(`Try this query:`);
+console.log(`
+{
+  books {
+    id
+    title
+    author
+  }
+}
+`);
+```
+
+Run the server:
+```bash
+npm run dev
+```
+
+Visit `http://localhost:4000` to access Apollo Sandbox.
+
+### Session 2: Implementing Complex Resolvers (3 hours)
+
+**Exercise 2.2: Library API with Relationships**
+
+Create `src/library-server.ts`:
+```typescript
+// library-server.ts
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+
+// Types
+interface Author {
+  id: string;
+  name: string;
+  bio?: string;
+}
+
+interface Book {
+  id: string;
+  title: string;
+  authorId: string;
+  genre?: string;
+  pages?: number;
+}
+
+// In-memory database
+const authors: Author[] = [
+  { id: '1', name: 'George Orwell', bio: 'English novelist and essayist' },
+  { id: '2', name: 'Isaac Asimov', bio: 'Science fiction author' },
+];
+
+const books: Book[] = [
+  { id: '1', title: '1984', authorId: '1', genre: 'DYSTOPIAN', pages: 328 },
+  { id: '2', title: 'Animal Farm', authorId: '1', genre: 'SATIRE', pages: 112 },
+  { id: '3', title: 'Foundation', authorId: '2', genre: 'SCIENCE_FICTION', pages: 255 },
+];
+
+let nextAuthorId = 3;
+let nextBookId = 4;
+
+// Schema
+const typeDefs = `#graphql
+  enum Genre {
+    FICTION
+    NON_FICTION
+    SCIENCE_FICTION
+    DYSTOPIAN
+    SATIRE
+  }
+
+  type Author {
+    id: ID!
+    name: String!
+    bio: String
+    books: [Book!]!
+    bookCount: Int!
+  }
+
+  type Book {
+    id: ID!
+    title: String!
+    author: Author!
+    genre: Genre
+    pages: Int
+  }
+
+  input BookInput {
+    title: String!
+    authorId: ID!
+    genre: Genre
+    pages: Int
+  }
+
+  input AuthorInput {
+    name: String!
+    bio: String
+  }
+
+  type Query {
+    books(genre: Genre, authorId: ID): [Book!]!
+    book(id: ID!): Book
+    authors: [Author!]!
+    author(id: ID!): Author
+  }
+
+  type Mutation {
+    addBook(input: BookInput!): Book!
+    addAuthor(input: AuthorInput!): Author!
+    deleteBook(id: ID!): Boolean!
+  }
+`;
+
+// Resolvers
+const resolvers = {
+  Query: {
+    books: (_: any, { genre, authorId }: { genre?: string; authorId?: string }) => {
+      let filteredBooks = books;
+
+      if (genre) {
+        filteredBooks = filteredBooks.filter(book => book.genre === genre);
+      }
+
+      if (authorId) {
+        filteredBooks = filteredBooks.filter(book => book.authorId === authorId);
+      }
+
+      return filteredBooks;
+    },
+
+    book: (_: any, { id }: { id: string }) => {
+      return books.find(book => book.id === id);
+    },
+
+    authors: () => authors,
+
+    author: (_: any, { id }: { id: string }) => {
+      return authors.find(author => author.id === id);
+    },
+  },
+
+  Mutation: {
+    addBook: (_: any, { input }: { input: Omit<Book, 'id'> }) => {
+      const newBook: Book = {
+        id: String(nextBookId++),
+        ...input,
+      };
+      books.push(newBook);
+      return newBook;
+    },
+
+    addAuthor: (_: any, { input }: { input: Omit<Author, 'id'> }) => {
+      const newAuthor: Author = {
+        id: String(nextAuthorId++),
+        ...input,
+      };
+      authors.push(newAuthor);
+      return newAuthor;
+    },
+
+    deleteBook: (_: any, { id }: { id: string }) => {
+      const index = books.findIndex(book => book.id === id);
+      if (index === -1) return false;
+      books.splice(index, 1);
+      return true;
+    },
+  },
+
+  // Field resolvers - resolve relationships
+  Book: {
+    author: (book: Book) => {
+      return authors.find(author => author.id === book.authorId);
+    },
+  },
+
+  Author: {
+    books: (author: Author) => {
+      return books.filter(book => book.authorId === author.id);
+    },
+
+    bookCount: (author: Author) => {
+      return books.filter(book => book.authorId === author.id).length;
+    },
+  },
+};
+
+// Create and start server
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+});
+
+const { url } = await startStandaloneServer(server, {
+  listen: { port: 4000 },
+});
+
+console.log(`🚀 Server ready at: ${url}`);
+```
+
+Test queries in Apollo Sandbox:
+```graphql
+# Get author with all their books
+query {
+  author(id: "1") {
+    name
+    bio
+    bookCount
+    books {
+      title
+      genre
+      pages
+    }
+  }
+}
+
+# Get book with author info
+query {
+  book(id: "1") {
+    title
+    pages
+    author {
+      name
+      bio
+    }
+  }
+}
+
+# Filter books by genre
+query {
+  books(genre: SCIENCE_FICTION) {
+    title
+    author {
+      name
+    }
+  }
+}
+
+# Add new author and book
+mutation {
+  newAuthor: addAuthor(input: {
+    name: "Frank Herbert"
+    bio: "American science fiction author"
+  }) {
+    id
+    name
+  }
+
+  newBook: addBook(input: {
+    title: "Dune"
+    authorId: "3"
+    genre: SCIENCE_FICTION
+    pages: 688
+  }) {
+    id
+    title
+    author {
+      name
+    }
+  }
+}
+```
+
+### Session 3: Error Handling and Validation (2 hours)
+
+**Exercise 2.3: Adding Error Handling**
+
+Create `src/error-handling-server.ts`:
+```typescript
+// error-handling-server.ts
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { GraphQLError } from 'graphql';
+
+// Custom error class
+class NotFoundError extends GraphQLError {
+  constructor(message: string) {
+    super(message, {
+      extensions: {
+        code: 'NOT_FOUND',
+      },
+    });
+  }
+}
+
+class ValidationError extends GraphQLError {
+  constructor(message: string) {
+    super(message, {
+      extensions: {
+        code: 'VALIDATION_ERROR',
+      },
+    });
+  }
+}
+
+interface Book {
+  id: string;
+  title: string;
+  author: string;
+  pages?: number;
+}
+
+const books: Book[] = [
+  { id: '1', title: '1984', author: 'George Orwell', pages: 328 },
+];
+
+let nextId = 2;
+
+const typeDefs = `#graphql
+  type Book {
+    id: ID!
+    title: String!
+    author: String!
+    pages: Int
+  }
+
+  type Query {
+    books: [Book!]!
+    book(id: ID!): Book!
+  }
+
+  type Mutation {
+    addBook(title: String!, author: String!, pages: Int): Book!
+    updateBook(id: ID!, title: String, author: String, pages: Int): Book!
+    deleteBook(id: ID!): Boolean!
+  }
+`;
+
+const resolvers = {
+  Query: {
+    books: () => books,
+
+    book: (_: any, { id }: { id: string }) => {
+      const book = books.find(b => b.id === id);
+      if (!book) {
+        throw new NotFoundError(`Book with ID ${id} not found`);
+      }
+      return book;
+    },
+  },
+
+  Mutation: {
+    addBook: (
+      _: any,
+      { title, author, pages }: { title: string; author: string; pages?: number }
+    ) => {
+      // Validation
+      if (title.trim().length === 0) {
+        throw new ValidationError('Title cannot be empty');
+      }
+      if (author.trim().length === 0) {
+        throw new ValidationError('Author cannot be empty');
+      }
+      if (pages !== undefined && pages < 1) {
+        throw new ValidationError('Pages must be positive');
+      }
+
+      const newBook: Book = {
+        id: String(nextId++),
+        title: title.trim(),
+        author: author.trim(),
+        pages,
+      };
+
+      books.push(newBook);
+      return newBook;
+    },
+
+    updateBook: (
+      _: any,
+      { id, title, author, pages }: {
+        id: string;
+        title?: string;
+        author?: string;
+        pages?: number;
+      }
+    ) => {
+      const book = books.find(b => b.id === id);
+      if (!book) {
+        throw new NotFoundError(`Book with ID ${id} not found`);
+      }
+
+      // Validate updates
+      if (title !== undefined) {
+        if (title.trim().length === 0) {
+          throw new ValidationError('Title cannot be empty');
+        }
+        book.title = title.trim();
+      }
+
+      if (author !== undefined) {
+        if (author.trim().length === 0) {
+          throw new ValidationError('Author cannot be empty');
+        }
+        book.author = author.trim();
+      }
+
+      if (pages !== undefined) {
+        if (pages < 1) {
+          throw new ValidationError('Pages must be positive');
+        }
+        book.pages = pages;
+      }
+
+      return book;
+    },
+
+    deleteBook: (_: any, { id }: { id: string }) => {
+      const index = books.findIndex(b => b.id === id);
+      if (index === -1) {
+        throw new NotFoundError(`Book with ID ${id} not found`);
+      }
+      books.splice(index, 1);
+      return true;
+    },
+  },
+};
+
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+});
+
+const { url } = await startStandaloneServer(server, {
+  listen: { port: 4000 },
+});
+
+console.log(`🚀 Server ready at: ${url}`);
+```
+
+Test error handling:
+```graphql
+# Should throw NOT_FOUND error
+query {
+  book(id: "999") {
+    title
+  }
+}
+
+# Should throw VALIDATION_ERROR
+mutation {
+  addBook(title: "", author: "Test") {
+    id
+  }
+}
+
+# Should throw VALIDATION_ERROR
+mutation {
+  addBook(title: "Test", author: "Author", pages: -5) {
+    id
+  }
+}
+```
+
+### Session 4: Context and Authentication (2 hours)
+
+**Exercise 2.4: Adding Authentication Context**
+
+Create `src/auth-server.ts`:
+```typescript
+// auth-server.ts
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { GraphQLError } from 'graphql';
+
+// Simple user database
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  role: 'USER' | 'ADMIN';
+}
+
+const users: User[] = [
+  { id: '1', username: 'alice', email: 'alice@example.com', role: 'ADMIN' },
+  { id: '2', username: 'bob', email: 'bob@example.com', role: 'USER' },
+];
+
+// Simple auth tokens (in production, use JWT)
+const authTokens = new Map<string, User>([
+  ['admin-token', users[0]],
+  ['user-token', users[1]],
+]);
+
+// Context type
+interface Context {
+  user?: User;
+}
+
+// Schema
+const typeDefs = `#graphql
+  enum Role {
+    USER
+    ADMIN
+  }
+
+  type User {
+    id: ID!
+    username: String!
+    email: String!
+    role: Role!
+  }
+
+  type Book {
+    id: ID!
+    title: String!
+    author: String!
+    createdBy: User!
+  }
+
+  type Query {
+    me: User
+    books: [Book!]!
+    users: [User!]!  # Admin only
+  }
+
+  type Mutation {
+    addBook(title: String!, author: String!): Book!
+    deleteBook(id: ID!): Boolean!  # Admin only
+  }
+`;
+
+interface Book {
+  id: string;
+  title: string;
+  author: string;
+  createdById: string;
+}
+
+const books: Book[] = [
+  { id: '1', title: '1984', author: 'George Orwell', createdById: '1' },
+];
+
+let nextId = 2;
+
+// Helper functions
+function requireAuth(context: Context): User {
+  if (!context.user) {
+    throw new GraphQLError('Not authenticated', {
+      extensions: { code: 'UNAUTHENTICATED' },
+    });
+  }
+  return context.user;
+}
+
+function requireAdmin(context: Context): User {
+  const user = requireAuth(context);
+  if (user.role !== 'ADMIN') {
+    throw new GraphQLError('Not authorized', {
+      extensions: { code: 'FORBIDDEN' },
+    });
+  }
+  return user;
+}
+
+// Resolvers
+const resolvers = {
+  Query: {
+    me: (_: any, __: any, context: Context) => {
+      return requireAuth(context);
+    },
+
+    books: () => books,
+
+    users: (_: any, __: any, context: Context) => {
+      requireAdmin(context);
+      return users;
+    },
+  },
+
+  Mutation: {
+    addBook: (
+      _: any,
+      { title, author }: { title: string; author: string },
+      context: Context
+    ) => {
+      const user = requireAuth(context);
+
+      const newBook: Book = {
+        id: String(nextId++),
+        title,
+        author,
+        createdById: user.id,
+      };
+
+      books.push(newBook);
+      return newBook;
+    },
+
+    deleteBook: (_: any, { id }: { id: string }, context: Context) => {
+      requireAdmin(context);
+
+      const index = books.findIndex(b => b.id === id);
+      if (index === -1) return false;
+
+      books.splice(index, 1);
+      return true;
+    },
+  },
+
+  Book: {
+    createdBy: (book: Book) => {
+      return users.find(u => u.id === book.createdById);
+    },
+  },
+};
+
+// Create server
+const server = new ApolloServer<Context>({
+  typeDefs,
+  resolvers,
+});
+
+// Start server with context
+const { url } = await startStandaloneServer(server, {
+  listen: { port: 4000 },
+  context: async ({ req }) => {
+    // Get token from Authorization header
+    const token = req.headers.authorization || '';
+    const user = authTokens.get(token);
+
+    return { user };
+  },
+});
+
+console.log(`🚀 Server ready at: ${url}`);
+console.log(`\nTest with these headers:`);
+console.log(`Admin: { "Authorization": "admin-token" }`);
+console.log(`User: { "Authorization": "user-token" }`);
+```
+
+Test with authentication (in Apollo Sandbox, set HTTP Headers):
+```graphql
+# Without auth - should fail
+query {
+  me {
+    username
+  }
+}
+
+# With auth header: { "Authorization": "user-token" }
+query {
+  me {
+    username
+    email
+    role
+  }
+}
+
+# Add book (requires auth)
+mutation {
+  addBook(title: "New Book", author: "Author") {
+    id
+    title
+    createdBy {
+      username
+    }
+  }
+}
+
+# View users (requires admin)
+# Try with user-token (should fail)
+# Try with admin-token (should succeed)
+query {
+  users {
+    username
+    role
+  }
+}
+
+# Delete book (requires admin)
+mutation {
+  deleteBook(id: "1")
+}
+```
+
+---
+
+## Day 5-7: Advanced GraphQL & Real-time Features
+
+### Session 1: DataLoader for N+1 Problem (3 hours)
+
+**Exercise 3.1: Understanding N+1 Problem**
+
+Install DataLoader:
+```bash
+npm install dataloader
+npm install --save-dev @types/dataloader
+```
+
+Create `src/dataloader-example.ts`:
+```typescript
+// dataloader-example.ts
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import DataLoader from 'dataloader';
+
+// Simulated database
+interface Author {
+  id: string;
+  name: string;
+}
+
+interface Book {
+  id: string;
+  title: string;
+  authorId: string;
+}
+
+const authors: Author[] = [
+  { id: '1', name: 'George Orwell' },
+  { id: '2', name: 'Isaac Asimov' },
+  { id: '3', name: 'Frank Herbert' },
+];
+
+const books: Book[] = [
+  { id: '1', title: '1984', authorId: '1' },
+  { id: '2', title: 'Animal Farm', authorId: '1' },
+  { id: '3', title: 'Foundation', authorId: '2' },
+  { id: '4', title: 'I, Robot', authorId: '2' },
+  { id: '5', title: 'Dune', authorId: '3' },
+];
+
+// Simulated database queries (with logging)
+function getAuthorById(id: string): Author | undefined {
+  console.log(`  📚 DB Query: getAuthorById(${id})`);
+  return authors.find(a => a.id === id);
+}
+
+function getAuthorsByIds(ids: string[]): (Author | undefined)[] {
+  console.log(`  📚 BATCHED DB Query: getAuthorsByIds([${ids.join(', ')}])`);
+  return ids.map(id => authors.find(a => a.id === id));
+}
+
+// DataLoader factory
+function createAuthorLoader() {
+  return new DataLoader<string, Author | undefined>(async (ids) => {
+    // This is called once per tick with batched IDs
+    return getAuthorsByIds([...ids]);
+  });
+}
+
+// Context type
+interface Context {
+  authorLoader: DataLoader<string, Author | undefined>;
+}
+
+// Schema
+const typeDefs = `#graphql
+  type Author {
+    id: ID!
+    name: String!
+  }
+
+  type Book {
+    id: ID!
+    title: String!
+    author: Author!
+  }
+
+  type Query {
+    books: [Book!]!
+  }
+`;
+
+// Resolvers WITHOUT DataLoader (N+1 problem)
+const resolversWithoutDataLoader = {
+  Query: {
+    books: () => books,
+  },
+  Book: {
+    author: (book: Book) => {
+      // This is called once for EACH book - N+1 problem!
+      return getAuthorById(book.authorId);
+    },
+  },
+};
+
+// Resolvers WITH DataLoader (solution)
+const resolversWithDataLoader = {
+  Query: {
+    books: () => books,
+  },
+  Book: {
+    author: (book: Book, _: any, context: Context) => {
+      // DataLoader batches these calls!
+      return context.authorLoader.load(book.authorId);
+    },
+  },
+};
+
+// Create server
+const server = new ApolloServer<Context>({
+  typeDefs,
+  resolvers: resolversWithDataLoader, // Change this to see the difference
+});
+
+const { url } = await startStandaloneServer(server, {
+  listen: { port: 4000 },
+  context: async () => ({
+    authorLoader: createAuthorLoader(),
+  }),
+});
+
+console.log(`🚀 Server ready at: ${url}`);
+console.log(`\nTry this query and watch the console:`);
+console.log(`
+{
+  books {
+    title
+    author {
+      name
+    }
+  }
+}
+`);
+console.log(`\nWithout DataLoader: 5 separate DB queries (N+1)`);
+console.log(`With DataLoader: 1 batched DB query`);
+```
+
+### Session 2: GraphQL Subscriptions (3 hours)
+
+Install subscription dependencies:
+```bash
+npm install graphql-ws ws @graphql-tools/schema
+npm install --save-dev @types/ws
+```
+
+**Exercise 3.2: Real-time Subscriptions**
+
+Create `src/subscription-server.ts`:
+```typescript
+// subscription-server.ts
+import { ApolloServer } from '@apollo/server';
+import { expressMiddleware } from '@apollo/server/express4';
+import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
+import { createServer } from 'http';
+import express from 'express';
+import { makeExecutableSchema } from '@graphql-tools/schema';
+import { WebSocketServer } from 'ws';
+import { useServer } from 'graphql-ws/lib/use/ws';
+import { PubSub } from 'graphql-subscriptions';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+
+// Install additional dependencies
+// npm install express cors body-parser graphql-subscriptions
+
+// PubSub for publishing events
+const pubsub = new PubSub();
+
+// Event names
+const MESSAGE_ADDED = 'MESSAGE_ADDED';
+const USER_JOINED = 'USER_JOINED';
+
+// Data
+interface Message {
+  id: string;
+  text: string;
+  username: string;
+  timestamp: string;
+}
+
+const messages: Message[] = [];
+let nextId = 1;
+
+// Schema
+const typeDefs = `#graphql
+  type Message {
+    id: ID!
+    text: String!
+    username: String!
+    timestamp: String!
+  }
+
+  type Query {
+    messages: [Message!]!
+  }
+
+  type Mutation {
+    sendMessage(text: String!, username: String!): Message!
+  }
+
+  type Subscription {
+    messageAdded: Message!
+    userJoined: String!
+  }
+`;
+
+// Resolvers
+const resolvers = {
+  Query: {
+    messages: () => messages,
+  },
+
+  Mutation: {
+    sendMessage: (_: any, { text, username }: { text: string; username: string }) => {
+      const message: Message = {
+        id: String(nextId++),
+        text,
+        username,
+        timestamp: new Date().toISOString(),
+      };
+
+      messages.push(message);
+
+      // Publish to subscribers
+      pubsub.publish(MESSAGE_ADDED, { messageAdded: message });
+
+      return message;
+    },
+  },
+
+  Subscription: {
+    messageAdded: {
+      subscribe: () => pubsub.asyncIterator([MESSAGE_ADDED]),
+    },
+
+    userJoined: {
+      subscribe: () => pubsub.asyncIterator([USER_JOINED]),
+    },
+  },
+};
+
+// Create schema
+const schema = makeExecutableSchema({ typeDefs, resolvers });
+
+// Create Express app
+const app = express();
+const httpServer = createServer(app);
+
+// WebSocket server for subscriptions
+const wsServer = new WebSocketServer({
+  server: httpServer,
+  path: '/graphql',
+});
+
+const serverCleanup = useServer({ schema }, wsServer);
+
+// Apollo Server
+const server = new ApolloServer({
+  schema,
+  plugins: [
+    ApolloServerPluginDrainHttpServer({ httpServer }),
+    {
+      async serverWillStart() {
+        return {
+          async drainServer() {
+            await serverCleanup.dispose();
+          },
+        };
+      },
+    },
+  ],
+});
+
+await server.start();
+
+app.use(
+  '/graphql',
+  cors<cors.CorsRequest>(),
+  bodyParser.json(),
+  expressMiddleware(server)
+);
+
+const PORT = 4000;
+httpServer.listen(PORT, () => {
+  console.log(`🚀 Server ready at http://localhost:${PORT}/graphql`);
+  console.log(`🔌 Subscriptions ready at ws://localhost:${PORT}/graphql`);
+});
+```
+
+Test subscriptions:
+```graphql
+# In one tab: Subscribe to new messages
+subscription {
+  messageAdded {
+    id
+    text
+    username
+    timestamp
+  }
+}
+
+# In another tab: Send messages
+mutation {
+  sendMessage(text: "Hello World!", username: "Alice") {
+    id
+    text
+  }
+}
+
+mutation {
+  sendMessage(text: "Hi everyone!", username: "Bob") {
+    id
+    text
+  }
+}
+
+# Watch the subscription tab update in real-time!
+```
+
+### Session 3: Modular Schema Organization (2 hours)
+
+**Exercise 3.3: Organizing Large Schemas**
+
+Create this file structure:
+```
+src/
+  modules/
+    users/
+      types.ts
+      resolvers.ts
+    books/
+      types.ts
+      resolvers.ts
+    authors/
+      types.ts
+      resolvers.ts
+  index.ts
+```
+
+Create `src/modules/users/types.ts`:
+```typescript
+// modules/users/types.ts
+export const userTypeDefs = `#graphql
+  type User {
+    id: ID!
+    username: String!
+    email: String!
+  }
+
+  extend type Query {
+    users: [User!]!
+    user(id: ID!): User
+  }
+
+  extend type Mutation {
+    createUser(username: String!, email: String!): User!
+  }
+`;
+```
+
+Create `src/modules/users/resolvers.ts`:
+```typescript
+// modules/users/resolvers.ts
+interface User {
+  id: string;
+  username: string;
+  email: string;
+}
+
+const users: User[] = [
+  { id: '1', username: 'alice', email: 'alice@example.com' },
+];
+
+let nextId = 2;
+
+export const userResolvers = {
+  Query: {
+    users: () => users,
+    user: (_: any, { id }: { id: string }) => users.find(u => u.id === id),
+  },
+
+  Mutation: {
+    createUser: (
+      _: any,
+      { username, email }: { username: string; email: string }
+    ) => {
+      const newUser: User = {
+        id: String(nextId++),
+        username,
+        email,
+      };
+      users.push(newUser);
+      return newUser;
+    },
+  },
+};
+```
+
+Create similar files for books and authors, then combine in `src/index.ts`:
+```typescript
+// index.ts
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { userTypeDefs } from './modules/users/types.js';
+import { userResolvers } from './modules/users/resolvers.js';
+// Import other modules...
+
+// Base schema
+const baseTypeDefs = `#graphql
+  type Query {
+    _empty: String
+  }
+
+  type Mutation {
+    _empty: String
+  }
+`;
+
+// Combine all type definitions
+const typeDefs = [
+  baseTypeDefs,
+  userTypeDefs,
+  // bookTypeDefs,
+  // authorTypeDefs,
+];
+
+// Merge resolvers
+const resolvers = {
+  Query: {
+    ...userResolvers.Query,
+    // ...bookResolvers.Query,
+    // ...authorResolvers.Query,
+  },
+  Mutation: {
+    ...userResolvers.Mutation,
+    // ...bookResolvers.Mutation,
+    // ...authorResolvers.Mutation,
+  },
+  // ...userResolvers.User,
+  // ...bookResolvers.Book,
+};
+
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+});
+
+const { url } = await startStandaloneServer(server, {
+  listen: { port: 4000 },
+});
+
+console.log(`🚀 Server ready at: ${url}`);
+```
+
+---
+
+## Week 2 Mini-Project: Real-time Chat API
+
+Create a complete chat application with:
+- User authentication
+- Channels/rooms
+- Real-time message subscriptions
+- User presence (online/offline)
+- Typing indicators
+
+Create `src/chat-project.ts`:
+```typescript
+// chat-project.ts - Complete implementation
+import { ApolloServer } from '@apollo/server';
+import { expressMiddleware } from '@apollo/server/express4';
+import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
+import { createServer } from 'http';
+import express from 'express';
+import { makeExecutableSchema } from '@graphql-tools/schema';
+import { WebSocketServer } from 'ws';
+import { useServer } from 'graphql-ws/lib/use/ws';
+import { PubSub } from 'graphql-subscriptions';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+
+const pubsub = new PubSub();
+
+// Event names
+const MESSAGE_SENT = 'MESSAGE_SENT';
+const USER_TYPING = 'USER_TYPING';
+const USER_ONLINE = 'USER_ONLINE';
+
+// Types
+interface User {
+  id: string;
+  username: string;
+  online: boolean;
+}
+
+interface Channel {
+  id: string;
+  name: string;
+}
+
+interface Message {
+  id: string;
+  channelId: string;
+  userId: string;
+  text: string;
+  timestamp: string;
+}
+
+// Data
+const users: User[] = [
+  { id: '1', username: 'Alice', online: false },
+  { id: '2', username: 'Bob', online: false },
+];
+
+const channels: Channel[] = [
+  { id: '1', name: 'general' },
+  { id: '2', name: 'random' },
+];
+
+const messages: Message[] = [];
+let nextMessageId = 1;
+
+// Schema
+const typeDefs = `#graphql
+  type User {
+    id: ID!
+    username: String!
+    online: Boolean!
+  }
+
+  type Channel {
+    id: ID!
+    name: String!
+    messages: [Message!]!
+  }
+
+  type Message {
+    id: ID!
+    channel: Channel!
+    user: User!
+    text: String!
+    timestamp: String!
+  }
+
+  type TypingIndicator {
+    userId: ID!
+    username: String!
+    channelId: ID!
+  }
+
+  type Query {
+    channels: [Channel!]!
+    channel(id: ID!): Channel
+    messages(channelId: ID!): [Message!]!
+    users: [User!]!
+  }
+
+  type Mutation {
+    sendMessage(channelId: ID!, userId: ID!, text: String!): Message!
+    setUserOnline(userId: ID!, online: Boolean!): User!
+    setTyping(channelId: ID!, userId: ID!, typing: Boolean!): Boolean!
+  }
+
+  type Subscription {
+    messageSent(channelId: ID!): Message!
+    userTyping(channelId: ID!): TypingIndicator!
+    userOnline: User!
+  }
+`;
+
+// Resolvers
+const resolvers = {
+  Query: {
+    channels: () => channels,
+    channel: (_: any, { id }: { id: string }) => channels.find(c => c.id === id),
+    messages: (_: any, { channelId }: { channelId: string }) =>
+      messages.filter(m => m.channelId === channelId),
+    users: () => users,
+  },
+
+  Mutation: {
+    sendMessage: (
+      _: any,
+      { channelId, userId, text }: { channelId: string; userId: string; text: string }
+    ) => {
+      const message: Message = {
+        id: String(nextMessageId++),
+        channelId,
+        userId,
+        text,
+        timestamp: new Date().toISOString(),
+      };
+
+      messages.push(message);
+      pubsub.publish(MESSAGE_SENT, { messageSent: message, channelId });
+
+      return message;
+    },
+
+    setUserOnline: (_: any, { userId, online }: { userId: string; online: boolean }) => {
+      const user = users.find(u => u.id === userId);
+      if (!user) throw new Error('User not found');
+
+      user.online = online;
+      pubsub.publish(USER_ONLINE, { userOnline: user });
+
+      return user;
+    },
+
+    setTyping: (
+      _: any,
+      { channelId, userId, typing }: { channelId: string; userId: string; typing: boolean }
+    ) => {
+      const user = users.find(u => u.id === userId);
+      if (!user || !typing) return true;
+
+      pubsub.publish(USER_TYPING, {
+        userTyping: {
+          userId,
+          username: user.username,
+          channelId,
+        },
+      });
+
+      return true;
+    },
+  },
+
+  Subscription: {
+    messageSent: {
+      subscribe: (_: any, { channelId }: { channelId: string }) => {
+        return pubsub.asyncIterator([MESSAGE_SENT]);
+      },
+      filter: (payload: any, variables: any) => {
+        return payload.channelId === variables.channelId;
+      },
+    },
+
+    userTyping: {
+      subscribe: (_: any, { channelId }: { channelId: string }) => {
+        return pubsub.asyncIterator([USER_TYPING]);
+      },
+    },
+
+    userOnline: {
+      subscribe: () => pubsub.asyncIterator([USER_ONLINE]),
+    },
+  },
+
+  Channel: {
+    messages: (channel: Channel) => messages.filter(m => m.channelId === channel.id),
+  },
+
+  Message: {
+    channel: (message: Message) => channels.find(c => c.id === message.channelId),
+    user: (message: Message) => users.find(u => u.id === message.userId),
+  },
+};
+
+// Create schema
+const schema = makeExecutableSchema({ typeDefs, resolvers });
+
+// Setup Express and WebSocket
+const app = express();
+const httpServer = createServer(app);
+
+const wsServer = new WebSocketServer({
+  server: httpServer,
+  path: '/graphql',
+});
+
+const serverCleanup = useServer({ schema }, wsServer);
+
+const server = new ApolloServer({
+  schema,
+  plugins: [
+    ApolloServerPluginDrainHttpServer({ httpServer }),
+    {
+      async serverWillStart() {
+        return {
+          async drainServer() {
+            await serverCleanup.dispose();
+          },
+        };
+      },
+    },
+  ],
+});
+
+await server.start();
+
+app.use(
+  '/graphql',
+  cors<cors.CorsRequest>(),
+  bodyParser.json(),
+  expressMiddleware(server)
+);
+
+const PORT = 4000;
+httpServer.listen(PORT, () => {
+  console.log(`🚀 Chat API ready at http://localhost:${PORT}/graphql`);
+  console.log(`🔌 Subscriptions ready at ws://localhost:${PORT}/graphql`);
+});
+```
+
+Test the complete chat API with various queries, mutations, and subscriptions!
+
+---
+
+## Week 2 Wrap-up
+
+### Review Checklist
+- [ ] Understand GraphQL schema and type system
+- [ ] Can write queries and mutations
+- [ ] Built GraphQL server with Apollo
+- [ ] Implemented resolvers with relationships
+- [ ] Added error handling and validation
+- [ ] Understand authentication with context
+- [ ] Used DataLoader to solve N+1 problem
+- [ ] Implemented real-time subscriptions
+- [ ] Organized schema modularly
+- [ ] Completed chat API project
+
+### Next Steps
+Prepare for Week 3:
+1. Review GraphQL concepts
+2. Think about how agents could use APIs
+3. Read up on Model Context Protocol basics
+4. Familiarize yourself with LLM APIs (OpenAI/Anthropic)

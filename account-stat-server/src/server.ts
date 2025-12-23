@@ -3,7 +3,7 @@ import fs from 'fs';
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { LogAggregator } from './services/log-aggregator.js';
-import { AccountProcessor } from './services/account-processor.js';
+import { AccountService } from './services/account-service.js';
 import { createLogRouter } from './routes/logs.js';
 import { createAccountsRouter } from './routes/accounts.js';
 
@@ -22,7 +22,7 @@ await VerifyDirectories();
 const logger = new LogAggregator(serverContext.logPath);
 
 try {
-    const accountProcessor = new AccountProcessor(serverContext.dataDir, logger);
+    const accountProcessor = new AccountService(serverContext.dataDir, logger);
     await accountProcessor.processAllAccounts();
 
 

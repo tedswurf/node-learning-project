@@ -18,6 +18,39 @@ export class Account {
         this.records.push(record);
     }
 
+    GetAmountForCategoryInMonth(category: string, month: string): number | null {
+        let cell = this.records
+            .find(r => r.category === category)?.monthly
+            .find(m => m.month === month);
+
+        return cell ? cell.amount : null;
+    }
+
+
+    GetTotalAmountForCategory(category: string): number | null {
+        let record = this.records
+            .find(r => r.category === category);
+
+        return record ? record.total : null;
+    }
+
+
+    GetMeanAmountForCategory(category: string): number | null {
+        let record = this.records
+            .find(r => r.category === category);
+
+        return record ? record.mean : null;
+    }
+
+
+    GetMedianAmountForCategory(category: string): number | null {
+        let record = this.records
+            .find(r => r.category === category);
+
+        return record ? record.median : null;
+    }
+
+
     GetIncomeForMonth(month: string): number {
         const incomeForMonth = this.records
             .filter(record => record.type === RecordType.income)
